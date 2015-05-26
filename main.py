@@ -1,12 +1,14 @@
 
-FREECADPATH_WIN = "C:\Users\GS\Documents\CAD\\trunk\FreeCAD 0.15\\bin"
+FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
 import sys
 sys.path.append(FREECADPATH_WIN)
+sys.path.append('./lib')
 
 import FreeCAD
 from importPart import importPart
-import time
+import exportWebGL as wgl
 
+# function to generate interval
 def generate_interval(min, max, step):
     x = []
     for i in range(min, max+step, step):
@@ -14,31 +16,30 @@ def generate_interval(min, max, step):
     return x
 
 # Dimensions in mm
-# LENGTH = [300, 320, 340, 360, 380, 400] #length of CenterPart & SideParts
 LENGTH = generate_interval(250, 450, 50)
-#L1 = [140, 160, 180, 200] #width of CenterPart
-L1 = generate_interval(140, 260, 20)
+L1 = generate_interval(140, 260, 20) #width of CenterPart
 L2 = [115] #width of SidePart
 THICKNESS = 18. #thikness of material
 HEIGHT = generate_interval(350, 550, 50) #height of stool
-GAP = 10. #free gap between CenterPart & SidePart
+GAP = 10. #gap between CenterPart & SidePart
 print len(L2)*len(L1)*len(LENGTH)*len(HEIGHT)
-raw_input()
+raw_input("Press Enter to continue")
 
-doc_CP = FreeCAD.open("C:\Users\GS\Documents\CAD\\trunk\CAD_Stool_v1\CenterPart.FCStd")
-doc_SP = FreeCAD.open("C:\Users\GS\Documents\CAD\\trunk\CAD_Stool_v1\SidePart.FCStd")
-doc_LP = FreeCAD.open("C:\Users\GS\Documents\CAD\\trunk\CAD_Stool_v1\LinkPart.FCStd")
-doc_Leg = FreeCAD.open("C:\Users\GS\Documents\CAD\\trunk\CAD_Stool_v1\LegPart.FCStd")
-doc_Stool = FreeCAD.open("C:\Users\GS\Documents\CAD\\trunk\CAD_Stool_v1\TestAssemble.FCStd")
+#Local path to Freecad files
+doc_CP = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\CenterPart.FCStd")
+doc_SP = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\SidePart.FCStd")
+doc_LP = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\LinkPart.FCStd")
+doc_Leg = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\LegPart.FCStd")
+doc_Stool = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\StoolAssembly.FCStd")
 
 for length in LENGTH:
     for l1 in L1:
         for h in HEIGHT:
             for l2 in L2:
+
+                ####### Update parts independently #######
                 # CenterPart #
-                # Set length and width from first Sketch (pad)
-
-
+                # Set length and width from first Sketch
                 doc_CP.Sketch.setDatum("Length", length)
                 doc_CP.Sketch.setDatum("Width", l1)
                 # Set thickness from second Sketch001 (pocket)
@@ -48,7 +49,6 @@ for length in LENGTH:
 
                 # SidePart #
                 # Set length and width from first Sketch (pad)
-
                 doc_SP.Sketch.setDatum("Length", length)
                 doc_SP.Sketch.setDatum("Width", -l2)
                 # Set thickness from second Sketch001 (pocket)
@@ -68,16 +68,14 @@ for length in LENGTH:
                 doc_Leg.recompute()
                 doc_Leg.save()
 
-                update_part = {}
+                ######## Update parts in Assembly file and re-run constraint solver #########
                 for obj in doc_Stool.Objects:
                     if obj.TypeId == 'Part::FeaturePython' and hasattr(obj,"sourceFile"):
-                        importPart(obj.sourceFile, obj.Label)
+                        importPart(obj.sourceFile, obj.Label) #function importPart from Assembly2 workbench
                 doc_Stool.recompute()
                 doc_Stool.save()
 
-                sys.path.append('./WebGL')
                 export_list = []
-                import exportWebGL as wgl
                 for obj in doc_Stool.Objects:
                     if obj.isDerivedFrom("Part::Feature"):
                         export_list.append(obj)
