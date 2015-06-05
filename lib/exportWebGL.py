@@ -1,20 +1,6 @@
 __author__ = 'GSN'
 # MODIFIED FROM FREECAD
 
-"""FreeCAD webgl exporter
-
-options: importWebGL.wireframeStyle = "faceloop" (can also be "multimaterial" or None)
-importWebGL.template = a complete html file, where $CameraData is a placeholder for the
-FreeCAD camera, and $ObjectsData a placeholder for the FreeCAD objects.
-importWebGL.linewidth = an integer, specifyig the width of lines in "faceloop" mode"""
-
-FREECAD_PATH = "C:\Program Files (x86)\FreeCAD 0.15\\bin"
-import sys
-sys.path.append(FREECAD_PATH)
-
-DOC_PATH = "C:\Users\GS\Documents\CAD\trunk\CAD_Stool_v1\TestAssemble.FCStd"
-
-
 import FreeCAD,Draft,Part,DraftGeomUtils
 
 if FreeCAD.GuiUp:
@@ -25,15 +11,17 @@ else:
     def translate(ctxt,txt):
         return txt
 
-tab = "                " # the tab size
+tab = "        " # the tab size
 wireframeStyle = "faceloop" # this can be "faceloop", "multimaterial" or None
 cameraPosition = None # set this to a tuple to change, for ex. (0,0,0)
 linewidth = 1
 template = """var $ModuleName = {
-    geom : function (scene) {
+    geom : function () {
+        geometry = [];
         //placeholder object
         $ObjectsData
         //placeholder object
+    return [geometry];
     }
 }
 """
@@ -56,11 +44,10 @@ def getHTML(objectsList, param_list):
     m = template.replace("$ModuleName",param_list)
     # get objects data
     objectsData = ''
-    for obj in objectsList:
-        objectsData += getObjectData(obj)
+    for i, obj in enumerate(objectsList):
+        objectsData += getObjectData(obj,i)
     #t = template.replace("$CameraData",getCameraData())
     t = m.replace("$ObjectsData",objectsData)
-
     return t
 
 def getCameraData():
@@ -82,44 +69,70 @@ def getCameraData():
     # print result
     return result
 
-def getObjectData(obj,wireframeMode=wireframeStyle):
-    """returns the geometry data of an object as three.js snippet. wireframeMode
-    can be multimaterial, faceloop or None"""
+def assignUVs(obj):
+    x_max = obj.Shape.BoundBox.XMax
+    x_min = obj.Shape.BoundBox.XMin
+    y_max = obj.Shape.BoundBox.YMax
+    y_min = obj.Shape.BoundBox.YMin
 
+
+def getObjectData(obj,index, wireframeMode=wireframeStyle):
     result = ""
     wires = []
+
+    ### Start UVs
+    x_max = obj.Shape.BoundBox.XMax
+    x_min = obj.Shape.BoundBox.XMin
+    y_max = obj.Shape.BoundBox.YMax
+    y_min = obj.Shape.BoundBox.YMin
+
+
     if obj.isDerivedFrom("Part::Feature"):
         fcmesh = obj.Shape.tessellate(0.1)
-        result = "var geom = new THREE.Geometry();\n"
+        result = "var geom"+str(index)+" = new THREE.Geometry();\n"
+        result += tab+"geom"+str(index)+".faceVertexUvs[0] = [];\n"
         # adding vertices data
         for i in range(len(fcmesh[0])):
             v = fcmesh[0][i]
             result += tab+"var v"+str(i)+" = new THREE.Vector3("+str(v.x)+","+str(v.y)+","+str(v.z)+");\n"
-        result += tab+"console.log(geom.vertices)\n"
+        result += tab+"console.log(geom"+str(index)+".vertices)\n"
         for i in range(len(fcmesh[0])):
-            result += tab+"geom.vertices.push(v"+str(i)+");\n"
+            result += tab+"geom"+str(index)+".vertices.push(v"+str(i)+");\n"
         # adding facets data
         for f in fcmesh[1]:
-            result += tab+"geom.faces.push( new THREE.Face3"+str(f)+" );\n"
-        for f in obj.Shape.Faces:
-            for w in f.Wires:
-                wo = Part.Wire(DraftGeomUtils.sortEdges(w.Edges))
-                wires.append(wo.discretize(QuasiDeflection=0.1))
+            result += tab+"geom"+str(index)+".faces.push( new THREE.Face3"+str(f)+" );\n"
+            ## Setting UVs coordinates ###
+            result += tab+"geom"+str(index)+".faceVertexUvs[0].push([ \n"
+            tmp = 0
+            for vertices in f:
+                uv = ((fcmesh[0][vertices].x -x_min) / (x_max - x_min), (fcmesh[0][vertices].y -y_min) / (y_max - y_min))
+                tmp += 1
+                if tmp == 3:
+                    result += tab+"    new THREE.Vector2"+str(uv)+"\n"
+                else:
+                    result += tab+"    new THREE.Vector2"+str(uv)+",\n"
+            result += tab+"]);\n"
+            ## end of UVs coordinates ##
 
-    elif obj.isDerivedFrom("Mesh::Feature"):
-        mesh = obj.Mesh
-        result = "var geom = new THREE.Geometry();\n"
-        # adding vertices data
-        for p in mesh.Points:
-            v = p.Vector
-            i = p.Index
-            result += tab+"var v"+str(i)+" = new THREE.Vector3("+str(v.x)+","+str(v.y)+","+str(v.z)+");\n"
-        result += tab+"console.log(geom.vertices)\n"
-        for p in mesh.Points:
-            result += tab+"geom.vertices.push(v"+str(p.Index)+");\n"
-        # adding facets data
-        for f in mesh.Facets:
-            result += tab+"geom.faces.push( new THREE.Face3"+str(f.PointIndices)+" );\n"
+        # for f in obj.Shape.Faces:
+        #     for w in f.Wires:
+        #         wo = Part.Wire(DraftGeomUtils.sortEdges(w.Edges))
+        #         wires.append(wo.discretize(QuasiDeflection=0.1))
+
+    # elif obj.isDerivedFrom("Mesh::Feature"):
+    #     mesh = obj.Mesh
+    #     result = "var geom = new THREE.Geometry();\n"
+    #     # adding vertices data
+    #     for p in mesh.Points:
+    #         v = p.Vector
+    #         i = p.Index
+    #         result += tab+"var v"+str(i)+" = new THREE.Vector3("+str(v.x)+","+str(v.y)+","+str(v.z)+");\n"
+    #     result += tab+"console.log(geom.vertices)\n"
+    #     for p in mesh.Points:
+    #         result += tab+"geom.vertices.push(v"+str(p.Index)+");\n"
+    #     # adding facets data
+    #     for f in mesh.Facets:
+    #         result += tab+"geom.faces.push( new THREE.Face3"+str(f.PointIndices)+" );\n"
 
     if result:
         # adding a base material
@@ -128,34 +141,35 @@ def getObjectData(obj,wireframeMode=wireframeStyle):
             rgb = Draft.getrgb(col,testbw=False)
         else:
             rgb = "#888888" # test color
-        result += tab+"var basematerial = new THREE.MeshBasicMaterial( { color: 0x"+str(rgb)[1:]+" } );\n"
+        # result += tab+"var basematerial =  new THREE.MeshBasicMaterial( material );\n"
         #result += tab+"var basematerial = new THREE.MeshLambertMaterial( { color: 0x"+str(rgb)[1:]+" } );\n"
 
-        if wireframeMode == "faceloop":
-            # adding the mesh to the scene with a wireframe copy
-            result += tab+"var mesh = new THREE.Mesh( geom, basematerial );\n"
-            result += tab+"scene.add( mesh );\n"
-            result += tab+"var linematerial = new THREE.LineBasicMaterial({linewidth: %d, color: 0x000000,});\n" % linewidth
-            for w in wires:
-                result += tab+"var wire = new THREE.Geometry();\n"
-                for p in w:
-                    result += tab+"wire.vertices.push(new THREE.Vector3("
-                    result += str(p.x)+", "+str(p.y)+", "+str(p.z)+"));\n"
-                result += tab+"var line = new THREE.Line(wire, linematerial);\n"
-                result += tab+"scene.add(line);\n"
+        # if wireframeMode == "faceloop":
+        #     # adding the mesh to the scene with a wireframe copy
+        #     result += tab+"var mesh = new THREE.Mesh( geom, basematerial );\n"
+        #     result += tab+"scene.add( mesh );\n"
+        #     result += tab+"var linematerial = new THREE.LineBasicMaterial({linewidth: %d, color: 0x000000,});\n" % linewidth
+        #     for w in wires:
+        #         result += tab+"var wire = new THREE.Geometry();\n"
+        #         for p in w:
+        #             result += tab+"wire.vertices.push(new THREE.Vector3("
+        #             result += str(p.x)+", "+str(p.y)+", "+str(p.z)+"));\n"
+        #         result += tab+"var line = new THREE.Line(wire, linematerial);\n"
+        #         result += tab+"scene.add(line);\n"
+        #
+        # elif wireframeMode == "multimaterial":
+        #     # adding a wireframe material
+        #     result += tab+"var wireframe = new THREE.MeshBasicMaterial( { color: "
+        #     result += "0x000000, wireframe: true, transparent: true } );\n"
+        #     result += tab+"var material = [ basematerial, wireframe ];\n"
+        #     result += tab+"var mesh = new THREE.SceneUtils.createMultiMaterialObject( geom, material );\n"
+        #     result += tab+"scene.add( mesh );\n"+tab
 
-        elif wireframeMode == "multimaterial":
-            # adding a wireframe material
-            result += tab+"var wireframe = new THREE.MeshBasicMaterial( { color: "
-            result += "0x000000, wireframe: true, transparent: true } );\n"
-            result += tab+"var material = [ basematerial, wireframe ];\n"
-            result += tab+"var mesh = new THREE.SceneUtils.createMultiMaterialObject( geom, material );\n"
-            result += tab+"scene.add( mesh );\n"+tab
-
-        else:
-            # adding the mesh to the scene with simple material
-            result += tab+"var mesh = new THREE.Mesh( geom, basematerial );\n"
-            result += tab+"scene.add( mesh );\n"+tab
+        # else:
+        # adding the mesh to the scene with simple material
+        # result += tab+"var mesh = new THREE.Mesh( geom, basematerial );\n"
+        # result += tab+"scene.add( mesh );\n"+tab
+        result += tab+"geometry.push(geom"+str(index)+");\n"
 
     return result
 

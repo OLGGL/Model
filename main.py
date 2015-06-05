@@ -17,20 +17,23 @@ def generate_interval(min, max, step):
 
 # Dimensions in mm
 LENGTH = generate_interval(250, 450, 50)
+# LENGTH = [370]
 L1 = generate_interval(140, 260, 20) #width of CenterPart
+# L1 = [160]
 L2 = [115] #width of SidePart
 THICKNESS = 18. #thikness of material
 HEIGHT = generate_interval(350, 550, 50) #height of stool
+# HEIGHT = [400]
 GAP = 10. #gap between CenterPart & SidePart
 print len(L2)*len(L1)*len(LENGTH)*len(HEIGHT)
 raw_input("Press Enter to continue")
 
 #Local path to Freecad files
-doc_CP = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\CenterPart.FCStd")
-doc_SP = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\SidePart.FCStd")
-doc_LP = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\LinkPart.FCStd")
-doc_Leg = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\LegPart.FCStd")
-doc_Stool = FreeCAD.open("C:\Users\GS\Documents\Model\\trunk\Design\GSN_Stool\StoolAssembly.FCStd")
+doc_CP = FreeCAD.open("./Design/GSN_Stool/CenterPart.FCStd")
+doc_SP = FreeCAD.open("./Design/GSN_Stool/SidePart.FCStd")
+doc_LP = FreeCAD.open("./Design/GSN_Stool/LinkPart.FCStd")
+doc_Leg = FreeCAD.open("./Design/GSN_Stool/LegPart.FCStd")
+doc_Stool = FreeCAD.open("./Design/GSN_Stool/StoolAssembly.FCStd")
 
 for length in LENGTH:
     for l1 in L1:
