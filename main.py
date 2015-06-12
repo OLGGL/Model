@@ -17,13 +17,13 @@ def generate_interval(min, max, step):
 
 # Dimensions in mm
 LENGTH = generate_interval(250, 450, 50)
-# LENGTH = [370]
+# LENGTH = [400]
 L1 = generate_interval(140, 260, 20) #width of CenterPart
 # L1 = [160]
 L2 = [115] #width of SidePart
 THICKNESS = 18. #thikness of material
 HEIGHT = generate_interval(350, 550, 50) #height of stool
-# HEIGHT = [400]
+# HEIGHT = [350]
 GAP = 10. #gap between CenterPart & SidePart
 print len(L2)*len(L1)*len(LENGTH)*len(HEIGHT)
 raw_input("Press Enter to continue")

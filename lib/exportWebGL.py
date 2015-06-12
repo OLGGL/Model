@@ -28,9 +28,11 @@ linewidth = 1
 
 template = """var $ModuleName = {
     wireframe : function() {
+        wires = [];
         //placeholder object
         $ObjectsData
         //placeholder object
+    return [wires]
     }
 }
 """
@@ -155,22 +157,23 @@ def getObjectData(obj,index, wireframeMode=wireframeStyle):
 
         if wireframeMode == "faceloop":
             # adding the mesh to the scene with a wireframe copy
-            result += tab+"var linematerial = new THREE.LineBasicMaterial({linewidth: %d, color: 0x000000,});\n" % linewidth
-            for w in wires:
-                result += tab+"var wire = new THREE.Geometry();\n"
+            #result += tab+"var linematerial = new THREE.LineBasicMaterial({linewidth: %d, color: 0x000000,});\n" % linewidth
+            for i, w in enumerate(wires):
+                result += tab+"var wire"+str(index)+str(i)+" = new THREE.Geometry();\n"
                 for p in w:
-                    result += tab+"wire.vertices.push(new THREE.Vector3("
+                    result += tab+"wire"+str(index)+str(i)+".vertices.push(new THREE.Vector3("
                     result += str(p.x)+", "+str(p.y)+", "+str(p.z)+"));\n"
-                result += tab+"var line = new THREE.Line(wire, linematerial);\n"
-                result += tab+"scene.add(line);\n"
+                # result += tab+"var line = new THREE.Line(wire, linematerial);\n"
+                # result += tab+"scene.add(line);\n"
+                result += tab+"wires.push(wire"+str(index)+str(i)+");\n"
 
-        elif wireframeMode == "multimaterial":
-            # adding a wireframe material
-            result += tab+"var wireframe = new THREE.MeshBasicMaterial( { color: "
-            result += "0x000000, wireframe: true, transparent: true } );\n"
-            result += tab+"var material = [ basematerial, wireframe ];\n"
-            result += tab+"var mesh = new THREE.SceneUtils.createMultiMaterialObject( geom, material );\n"
-            result += tab+"scene.add( mesh );\n"+tab
+        # elif wireframeMode == "multimaterial":
+        #     # adding a wireframe material
+        #     result += tab+"var wireframe = new THREE.MeshBasicMaterial( { color: "
+        #     result += "0x000000, wireframe: true, transparent: true } );\n"
+        #     result += tab+"var material = [ basematerial, wireframe ];\n"
+        #     result += tab+"var mesh = new THREE.SceneUtils.createMultiMaterialObject( geom, material );\n"
+        #     result += tab+"scene.add( mesh );\n"+tab
 
         else:
 
