@@ -1,7 +1,9 @@
 
-FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
+#FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
+FREECADPATH_LINUX = "/usr/lib/freecad/lib"
 import sys
-sys.path.append(FREECADPATH_WIN)
+import os
+sys.path.append(FREECADPATH_LINUX)
 sys.path.append('./lib')
 
 import FreeCAD
@@ -29,11 +31,31 @@ print len(L2)*len(L1)*len(LENGTH)*len(HEIGHT)
 raw_input("Press Enter to continue")
 
 #Local path to Freecad files
-doc_CP = FreeCAD.open("./Design/GSN_Stool/CenterPart.FCStd")
-doc_SP = FreeCAD.open("./Design/GSN_Stool/SidePart.FCStd")
-doc_LP = FreeCAD.open("./Design/GSN_Stool/LinkPart.FCStd")
-doc_Leg = FreeCAD.open("./Design/GSN_Stool/LegPart.FCStd")
-doc_Stool = FreeCAD.open("./Design/GSN_Stool/StoolAssembly.FCStd")
+path_CP = os.getcwd()+'/Design/GSN_Stool/CenterPart.FCStd'
+path_SP = os.getcwd()+'/Design/GSN_Stool/SidePart.FCStd'
+path_LP = os.getcwd()+'/Design/GSN_Stool/LinkPart.FCStd'
+path_Leg = os.getcwd()+'/Design/GSN_Stool/LegPart.FCStd'
+path_Stool = os.getcwd()+'/Design/GSN_Stool/StoolAssembly.FCStd'
+dict_path = {
+    'CenterPart': path_CP,
+    'SidePart': path_SP,
+    'LinkPart': path_LP,
+    'LegPart': path_Leg
+}
+doc_CP = FreeCAD.open(path_CP)
+doc_SP = FreeCAD.open(path_SP)
+doc_LP = FreeCAD.open(path_LP)
+doc_Leg = FreeCAD.open(path_Leg)
+doc_Stool = FreeCAD.open(path_Stool)
+
+#Checking paths in assembly doc
+def check_path(doc, dict_path):
+    for obj in doc.Objects:
+        if obj.TypeId == 'Part::FeaturePython' and hasattr(obj,"sourceFile"):
+            obj.sourceFile = dict_path[obj.sourceFile.split('/')[-1].split('.')[0]]
+
+check_path(doc_Stool, dict_path)
+
 
 for length in LENGTH:
     for l1 in L1:

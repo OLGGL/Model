@@ -3,18 +3,9 @@ __author__ = 'GSN'
 
 import FreeCAD,Draft,Part,DraftGeomUtils
 
-if FreeCAD.GuiUp:
-    import FreeCADGui
-    from DraftTools import translate
-else:
-    FreeCADGui = None
-    def translate(ctxt,txt):
-        return txt
-
 tab = "        " # the tab size
 wireframeStyle = "faceloop" # this can be "faceloop", "multimaterial" or None
-cameraPosition = None # set this to a tuple to change, for ex. (0,0,0)
-linewidth = 1
+
 # template = """var $ModuleName = {
 #     geom : function () {
 #         geometry = [];
@@ -27,10 +18,17 @@ linewidth = 1
 # """
 
 template = """var $ModuleName = {
+    geom : function () {
+        geometry = [];
+        //placeholder object
+        $ObjectsDataFaces
+        //placeholder object
+    return [geometry];
+    },
     wireframe : function() {
         wires = [];
         //placeholder object
-        $ObjectsData
+        $ObjectsDataWires
         //placeholder object
     return [wires]
     }
@@ -42,24 +40,27 @@ if open.__module__ == '__builtin__':
     pythonopen = open
 
 def export(exportList,filename, param_list):
-    "exports the given objects to a .html file"
+    "exports the given objects to a .js file"
 
     html = getHTML(exportList, param_list)
     outfile = pythonopen(filename,"wb")
     outfile.write(html)
     outfile.close()
-    #FreeCAD.Console.PrintMessage(translate("Arch","successfully written ")+filename+"\n")
+
 
 def getHTML(objectsList, param_list):
     "returns the complete HTML code of a viewer for the given objects"
     m = template.replace("$ModuleName",param_list)
     # get objects data
-    objectsData = ''
+    objectsDataFaces = ''
+    objectsDataWires = ''
     for i, obj in enumerate(objectsList):
-        objectsData += getObjectData(obj,i)
+        objectsDataFaces += getObjectData(obj,i, FACES=True, WIRES=False)
+        objectsDataWires += getObjectData(obj,i, FACES=False, WIRES=True)
     #t = template.replace("$CameraData",getCameraData())
-    t = m.replace("$ObjectsData",objectsData)
-    return t
+    t = m.replace("$ObjectsDataFaces", objectsDataFaces)
+    w = t.replace("$ObjectsDataWires", objectsDataWires)
+    return w
 
 def getCameraData():
     "returns the position and direction of the camera as three.js snippet"
@@ -80,18 +81,12 @@ def getCameraData():
     # print result
     return result
 
-def assignUVs(obj):
-    x_max = obj.Shape.BoundBox.XMax
-    x_min = obj.Shape.BoundBox.XMin
-    y_max = obj.Shape.BoundBox.YMax
-    y_min = obj.Shape.BoundBox.YMin
 
-
-def getObjectData(obj,index, wireframeMode=wireframeStyle):
+def getObjectData(obj,index,FACES, WIRES, wireframeMode=wireframeStyle):
     result = ""
     wires = []
-    if False:
-        ### Start UVs
+    if FACES:
+        ### Start UVs coordinates calculation
         x_max = obj.Shape.BoundBox.XMax
         x_min = obj.Shape.BoundBox.XMin
         y_max = obj.Shape.BoundBox.YMax
@@ -124,12 +119,15 @@ def getObjectData(obj,index, wireframeMode=wireframeStyle):
                         result += tab+"    new THREE.Vector2"+str(uv)+",\n"
                 result += tab+"]);\n"
                 ## end of UVs coordinates ##
-    if True:
+            result += tab+"geometry.push(geom"+str(index)+");\n"
+
+    if WIRES:
         for f in obj.Shape.Faces:
             for w in f.Wires:
                 wo = Part.Wire(DraftGeomUtils.sortEdges(w.Edges))
                 wires.append(wo.discretize(QuasiDeflection=0.1))
 
+    # Mesh feature
     # elif obj.isDerivedFrom("Mesh::Feature"):
     #     mesh = obj.Mesh
     #     result = "var geom = new THREE.Geometry();\n"
@@ -145,16 +143,7 @@ def getObjectData(obj,index, wireframeMode=wireframeStyle):
     #     for f in mesh.Facets:
     #         result += tab+"geom.faces.push( new THREE.Face3"+str(f.PointIndices)+" );\n"
 
-    if True:
-        # adding a base material
-        if FreeCADGui:
-            col = obj.ViewObject.ShapeColor
-            rgb = Draft.getrgb(col,testbw=False)
-        else:
-            rgb = "#888888" # test color
-        # result += tab+"var basematerial =  new THREE.MeshBasicMaterial( material );\n"
-        #result += tab+"var basematerial = new THREE.MeshLambertMaterial( { color: 0x"+str(rgb)[1:]+" } );\n"
-
+    if WIRES:
         if wireframeMode == "faceloop":
             # adding the mesh to the scene with a wireframe copy
             #result += tab+"var linematerial = new THREE.LineBasicMaterial({linewidth: %d, color: 0x000000,});\n" % linewidth
@@ -166,18 +155,6 @@ def getObjectData(obj,index, wireframeMode=wireframeStyle):
                 # result += tab+"var line = new THREE.Line(wire, linematerial);\n"
                 # result += tab+"scene.add(line);\n"
                 result += tab+"wires.push(wire"+str(index)+str(i)+");\n"
-
-        # elif wireframeMode == "multimaterial":
-        #     # adding a wireframe material
-        #     result += tab+"var wireframe = new THREE.MeshBasicMaterial( { color: "
-        #     result += "0x000000, wireframe: true, transparent: true } );\n"
-        #     result += tab+"var material = [ basematerial, wireframe ];\n"
-        #     result += tab+"var mesh = new THREE.SceneUtils.createMultiMaterialObject( geom, material );\n"
-        #     result += tab+"scene.add( mesh );\n"+tab
-
-        else:
-
-            result += tab+"geometry.push(geom"+str(index)+");\n"
 
     return result
 
