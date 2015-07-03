@@ -2,6 +2,7 @@ __author__ = 'GSN'
 # MODIFIED FROM FREECAD
 
 import FreeCAD,Draft,Part,DraftGeomUtils
+import numpy as np
 
 tab = "        " # the tab size
 wireframeStyle = "faceloop" # this can be "faceloop", "multimaterial" or None
@@ -94,6 +95,26 @@ def getObjectData(obj,index,FACES, WIRES, wireframeMode=wireframeStyle):
         z_max = obj.Shape.BoundBox.ZMax
         z_min = obj.Shape.BoundBox.ZMin
 
+        l = np.sort([x_max - x_min, y_max - y_min, z_max - z_min])
+        U_Delta = l[-2]
+        V_Delta = l[-1]
+        U_min = 0
+        V_min = 0
+        if U_Delta == x_max - x_min:
+            U_min = x_min
+        elif U_Delta == y_max - y_min:
+            U_min = y_min
+        elif U_Delta == z_max - z_min:
+            U_min = z_min
+
+        if V_Delta == x_max - x_min:
+            V_min = x_min
+        elif V_Delta == y_max - y_min:
+            V_min = y_min
+        elif V_Delta == z_max - z_min:
+            V_min = z_min
+
+
         if obj.isDerivedFrom("Part::Feature"):
             fcmesh = obj.Shape.tessellate(0.1)
             result = "var geom"+str(index)+" = new THREE.Geometry();\n"
@@ -111,11 +132,27 @@ def getObjectData(obj,index,FACES, WIRES, wireframeMode=wireframeStyle):
                 result += tab+"geom"+str(index)+".faceVertexUvs[0].push([ \n"
                 tmp = 0
                 for vertices in f:
-                    uv = ((fcmesh[0][vertices].x -x_min) / (x_max - x_min), (fcmesh[0][vertices].y -y_min) / (y_max - y_min))
+                    old_uv = ((fcmesh[0][vertices].x -x_min) / (x_max - x_min), (fcmesh[0][vertices].y -y_min) / (y_max - y_min))
+                    if V_min == x_min and U_min == y_min:
+                        uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
+                    elif V_min == x_min and U_min == z_min:
+                        uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
+                    elif V_min == y_min and U_min == x_min:
+                        uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
+                    elif V_min == y_min and U_min == z_min:
+                        uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
+                    elif V_min == z_min and U_min == x_min:
+                        uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
+                    elif V_min == z_min and U_min == y_min:
+                        uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
                     tmp += 1
                     if tmp == 3:
+                        print "OLD UV", old_uv
+                        print "UV", uv
                         result += tab+"    new THREE.Vector2"+str(uv)+"\n"
                     else:
+                        print "OLD UV", old_uv
+                        print "UV", uv
                         result += tab+"    new THREE.Vector2"+str(uv)+",\n"
                 result += tab+"]);\n"
                 ## end of UVs coordinates ##

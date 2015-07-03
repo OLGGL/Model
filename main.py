@@ -1,9 +1,9 @@
 
-#FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
-FREECADPATH_LINUX = "/usr/lib/freecad/lib"
+FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
+# FREECADPATH_LINUX = "/usr/lib/freecad/lib"
 import sys
 import os
-sys.path.append(FREECADPATH_LINUX)
+sys.path.append(FREECADPATH_WIN)
 sys.path.append('./lib')
 
 import FreeCAD
@@ -31,7 +31,7 @@ print len(L2)*len(L1)*len(LENGTH)*len(HEIGHT)
 raw_input("Press Enter to continue")
 
 #Local path to Freecad files
-path_CP = os.getcwd()+'/Design/GSN_Stool/CenterPart.FCStd'
+path_CP = os.getcwd()+'\Design\GSN_Stool\CenterPart.FCStd'
 path_SP = os.getcwd()+'/Design/GSN_Stool/SidePart.FCStd'
 path_LP = os.getcwd()+'/Design/GSN_Stool/LinkPart.FCStd'
 path_Leg = os.getcwd()+'/Design/GSN_Stool/LegPart.FCStd'
@@ -54,7 +54,7 @@ def check_path(doc, dict_path):
         if obj.TypeId == 'Part::FeaturePython' and hasattr(obj,"sourceFile"):
             obj.sourceFile = dict_path[obj.sourceFile.split('/')[-1].split('.')[0]]
 
-check_path(doc_Stool, dict_path)
+# check_path(doc_Stool, dict_path)
 
 
 for length in LENGTH:
