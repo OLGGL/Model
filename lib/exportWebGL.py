@@ -55,9 +55,10 @@ def getHTML(objectsList, param_list):
     # get objects data
     objectsDataFaces = ''
     objectsDataWires = ''
-    for i, obj in enumerate(objectsList):
-        objectsDataFaces += getObjectData(obj,i, FACES=True, WIRES=False)
-        objectsDataWires += getObjectData(obj,i, FACES=False, WIRES=True)
+    nbre_face = 0
+    for obj in objectsList:
+        objectsDataFaces += getObjectData(obj, nbre_face, FACES=True, WIRES=False)
+        objectsDataWires += getObjectData(obj, nbre_face, FACES=False, WIRES=True)
     #t = template.replace("$CameraData",getCameraData())
     t = m.replace("$ObjectsDataFaces", objectsDataFaces)
     w = t.replace("$ObjectsDataWires", objectsDataWires)
@@ -83,80 +84,78 @@ def getCameraData():
     return result
 
 
-def getObjectData(obj,index,FACES, WIRES, wireframeMode=wireframeStyle):
+def getObjectData(obj, nbre_face, FACES, WIRES, wireframeMode=wireframeStyle):
     result = ""
     wires = []
+    old_nbre_face = nbre_face
     if FACES:
-        ### Start UVs coordinates calculation
-        x_max = obj.Shape.BoundBox.XMax
-        x_min = obj.Shape.BoundBox.XMin
-        y_max = obj.Shape.BoundBox.YMax
-        y_min = obj.Shape.BoundBox.YMin
-        z_max = obj.Shape.BoundBox.ZMax
-        z_min = obj.Shape.BoundBox.ZMin
-
-        l = np.sort([x_max - x_min, y_max - y_min, z_max - z_min])
-        U_Delta = l[-2]
-        V_Delta = l[-1]
-        U_min = 0
-        V_min = 0
-        if U_Delta == x_max - x_min:
-            U_min = x_min
-        elif U_Delta == y_max - y_min:
-            U_min = y_min
-        elif U_Delta == z_max - z_min:
-            U_min = z_min
-
-        if V_Delta == x_max - x_min:
-            V_min = x_min
-        elif V_Delta == y_max - y_min:
-            V_min = y_min
-        elif V_Delta == z_max - z_min:
-            V_min = z_min
-
-
         if obj.isDerivedFrom("Part::Feature"):
-            fcmesh = obj.Shape.tessellate(0.1)
-            result = "var geom"+str(index)+" = new THREE.Geometry();\n"
-            result += tab+"geom"+str(index)+".faceVertexUvs[0] = [];\n"
-            # adding vertices data
-            for i in range(len(fcmesh[0])):
-                v = fcmesh[0][i]
-                result += tab+"var v"+str(i)+" = new THREE.Vector3("+str(v.x)+","+str(v.y)+","+str(v.z)+");\n"
-            for i in range(len(fcmesh[0])):
-                result += tab+"geom"+str(index)+".vertices.push(v"+str(i)+");\n"
-            # adding facets data
-            for f in fcmesh[1]:
-                result += tab+"geom"+str(index)+".faces.push( new THREE.Face3"+str(f)+" );\n"
-                ## Setting UVs coordinates ###
-                result += tab+"geom"+str(index)+".faceVertexUvs[0].push([ \n"
-                tmp = 0
-                for vertices in f:
-                    old_uv = ((fcmesh[0][vertices].x -x_min) / (x_max - x_min), (fcmesh[0][vertices].y -y_min) / (y_max - y_min))
-                    if V_min == x_min and U_min == y_min:
-                        uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
-                    elif V_min == x_min and U_min == z_min:
-                        uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
-                    elif V_min == y_min and U_min == x_min:
-                        uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
-                    elif V_min == y_min and U_min == z_min:
-                        uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
-                    elif V_min == z_min and U_min == x_min:
-                        uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
-                    elif V_min == z_min and U_min == y_min:
-                        uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
-                    tmp += 1
-                    if tmp == 3:
-                        print "OLD UV", old_uv
-                        print "UV", uv
-                        result += tab+"    new THREE.Vector2"+str(uv)+"\n"
-                    else:
-                        print "OLD UV", old_uv
-                        print "UV", uv
-                        result += tab+"    new THREE.Vector2"+str(uv)+",\n"
-                result += tab+"]);\n"
-                ## end of UVs coordinates ##
-            result += tab+"geometry.push(geom"+str(index)+");\n"
+            for face in obj.Shape.Faces:
+                ### Start UVs coordinates calculation
+                x_max = face.BoundBox.XMax
+                x_min = face.BoundBox.XMin
+                y_max = face.BoundBox.YMax
+                y_min = face.BoundBox.YMin
+                z_max = face.BoundBox.ZMax
+                z_min = face.BoundBox.ZMin
+
+                l = np.sort([x_max - x_min, y_max - y_min, z_max - z_min])
+                U_Delta = l[-2]
+                V_Delta = l[-1]
+                U_min = 0
+                V_min = 0
+                if U_Delta == x_max - x_min:
+                    U_min = x_min
+                elif U_Delta == y_max - y_min:
+                    U_min = y_min
+                elif U_Delta == z_max - z_min:
+                    U_min = z_min
+
+                if V_Delta == x_max - x_min:
+                    V_min = x_min
+                elif V_Delta == y_max - y_min:
+                    V_min = y_min
+                elif V_Delta == z_max - z_min:
+                    V_min = z_min
+
+                fcmesh = face.tessellate(0.1)
+                result += "var geom"+str(nbre_face)+" = new THREE.Geometry();\n"
+                result += tab+"geom"+str(nbre_face)+".faceVertexUvs[0] = [];\n"
+                # adding vertices data
+                for i in range(len(fcmesh[0])):
+                    v = fcmesh[0][i]
+                    result += tab+"var v"+str(i)+" = new THREE.Vector3("+str(v.x)+","+str(v.y)+","+str(v.z)+");\n"
+                for i in range(len(fcmesh[0])):
+                    result += tab+"geom"+str(nbre_face)+".vertices.push(v"+str(i)+");\n"
+                # adding facets data
+                for f in fcmesh[1]:
+                    result += tab+"geom"+str(nbre_face)+".faces.push( new THREE.Face3"+str(f)+" );\n"
+                    ## Setting UVs coordinates ###
+                    result += tab+"geom"+str(nbre_face)+".faceVertexUvs[0].push([ \n"
+                    tmp = 0
+                    for vertices in f:
+                        if V_min == x_min and U_min == y_min:
+                            uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
+                        elif V_min == x_min and U_min == z_min:
+                            uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
+                        elif V_min == y_min and U_min == x_min:
+                            uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
+                        elif V_min == y_min and U_min == z_min:
+                            uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
+                        elif V_min == z_min and U_min == x_min:
+                            uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
+                        elif V_min == z_min and U_min == y_min:
+                            uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
+                        tmp += 1
+                        if tmp == 3:
+                            result += tab+"    new THREE.Vector2"+str(uv)+"\n"
+                        else:
+                            result += tab+"    new THREE.Vector2"+str(uv)+",\n"
+                    result += tab+"]);\n"
+                    ## end of UVs coordinates ##
+                result += tab+"geometry.push(geom"+str(nbre_face)+");\n"
+                nbre_face += 1
+        nbre_face = old_nbre_face
 
     if WIRES:
         for f in obj.Shape.Faces:
@@ -180,18 +179,18 @@ def getObjectData(obj,index,FACES, WIRES, wireframeMode=wireframeStyle):
     #     for f in mesh.Facets:
     #         result += tab+"geom.faces.push( new THREE.Face3"+str(f.PointIndices)+" );\n"
 
-    if WIRES:
         if wireframeMode == "faceloop":
             # adding the mesh to the scene with a wireframe copy
             #result += tab+"var linematerial = new THREE.LineBasicMaterial({linewidth: %d, color: 0x000000,});\n" % linewidth
             for i, w in enumerate(wires):
-                result += tab+"var wire"+str(index)+str(i)+" = new THREE.Geometry();\n"
+                result += tab+"var wire"+str(nbre_face)+str(i)+" = new THREE.Geometry();\n"
                 for p in w:
-                    result += tab+"wire"+str(index)+str(i)+".vertices.push(new THREE.Vector3("
+                    result += tab+"wire"+str(nbre_face)+str(i)+".vertices.push(new THREE.Vector3("
                     result += str(p.x)+", "+str(p.y)+", "+str(p.z)+"));\n"
                 # result += tab+"var line = new THREE.Line(wire, linematerial);\n"
                 # result += tab+"scene.add(line);\n"
-                result += tab+"wires.push(wire"+str(index)+str(i)+");\n"
+                result += tab+"wires.push(wire"+str(nbre_face)+str(i)+");\n"
+            nbre_face += 1
 
     return result
 

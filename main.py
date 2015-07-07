@@ -1,9 +1,9 @@
 
-FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
-# FREECADPATH_LINUX = "/usr/lib/freecad/lib"
+#FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
+FREECADPATH_LINUX = "/usr/lib/freecad/lib"
 import sys
 import os
-sys.path.append(FREECADPATH_WIN)
+sys.path.append(FREECADPATH_LINUX)
 sys.path.append('./lib')
 
 import FreeCAD
