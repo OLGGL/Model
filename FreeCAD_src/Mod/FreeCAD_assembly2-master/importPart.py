@@ -10,7 +10,7 @@ from lib3D import *
 from muxAssembly import muxObjects, Proxy_muxAssemblyObj
 
 def importPart( filename, partName=None ):
-    updateExistingPart = partName <> None
+    updateExistingPart = partName is not None
     if updateExistingPart:
         FreeCAD.Console.PrintMessage("updating part %s from %s\n" % (partName,filename))
     else:
