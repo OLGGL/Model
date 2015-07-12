@@ -5,18 +5,21 @@ When update parts is executed, this library import or updates the parts in the a
 from assembly2lib import *
 from assembly2lib import __dir__
 from PySide import QtGui
+from copy import copy
 import os, numpy, shutil
 from lib3D import *
 from muxAssembly import muxObjects, Proxy_muxAssemblyObj
 
-def importPart( filename, partName=None ):
+
+def importPart(filename, partName=None):
     updateExistingPart = partName is not None
     if updateExistingPart:
-        FreeCAD.Console.PrintMessage("updating part %s from %s\n" % (partName,filename))
+        FreeCAD.Console.PrintMessage("Updating part %s from %s\n" % (partName, filename))
     else:
-        FreeCAD.Console.PrintMessage("importing part from %s\n" % filename)
-        
-    doc_already_open = filename in [ d.FileName for d in FreeCAD.listDocuments().values() ] 
+        FreeCAD.Console.PrintMessage("Importing part from %s\n" % filename)
+    already_open = [d.FileName for d in FreeCAD.listDocuments().values()]
+    print(already_open)
+    doc_already_open = filename in already_open
     debugPrint(4, "%s open already %s" % (filename, doc_already_open))
     if not doc_already_open:
         currentDoc = FreeCAD.ActiveDocument.Name
@@ -57,15 +60,15 @@ def importPart( filename, partName=None ):
     else:        
         partName = findUnusedObjectName( doc.Label + '_' )
         try:
-            obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",partName)
+            obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", partName)
         except UnicodeEncodeError:
             safeName = findUnusedObjectName('import_')
             obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", safeName)
             obj.Label = findUnusedLabel( doc.Label + '_' )
-        obj.addProperty("App::PropertyFile",    "sourceFile",    "importPart").sourceFile = filename
-        obj.addProperty("App::PropertyFloat", "timeLastImport","importPart")
-        obj.setEditorMode("timeLastImport",1)  
-        obj.addProperty("App::PropertyBool","fixedPosition","importPart")
+        obj.addProperty("App::PropertyFile", "sourceFile", "importPart").sourceFile = filename
+        obj.addProperty("App::PropertyFloat", "timeLastImport", "importPart")
+        obj.setEditorMode("timeLastImport", 1)
+        obj.addProperty("App::PropertyBool", "fixedPosition", "importPart")
         obj.fixedPosition = not any([i.fixedPosition for i in FreeCAD.ActiveDocument.Objects if hasattr(i, 'fixedPosition') ])
     obj.Shape = obj_to_copy.Shape.copy() 
     if updateExistingPart:
@@ -540,4 +543,4 @@ def importUpdateConstraintSubobjects( doc, oldObject, newObject ):
                 debugPrint(3,'    closest match %s' % d_min)
                 newSE =  d_min.SE2
                 debugPrint(2,'  updating %s.%s   %s->%s' % (c.Name, SubElement, subElementName, newSE))
-                setattr(c, SubElement, subElementName) 
+                setattr(c, SubElement, subElementName)

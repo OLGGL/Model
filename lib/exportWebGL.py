@@ -40,6 +40,7 @@ template = """var $ModuleName = {
 if open.__module__ == '__builtin__':
     pythonopen = open
 
+
 def export(exportList,filename, param_list):
     "exports the given objects to a .js file"
 
@@ -63,6 +64,7 @@ def getHTML(objectsList, param_list):
     t = m.replace("$ObjectsDataFaces", objectsDataFaces)
     w = t.replace("$ObjectsDataWires", objectsDataWires)
     return w
+
 
 def getCameraData():
     "returns the position and direction of the camera as three.js snippet"
