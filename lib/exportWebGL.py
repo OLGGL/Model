@@ -106,19 +106,27 @@ def getObjectData(obj, nbre_face, FACES, WIRES, wireframeMode=wireframeStyle):
                 V_Delta = l[-1]
                 U_min = 0
                 V_min = 0
+                Umini = None
                 if U_Delta == x_max - x_min:
                     U_min = x_min
+                    Umini = "x"
                 elif U_Delta == y_max - y_min:
                     U_min = y_min
+                    Umini = "y"
                 elif U_Delta == z_max - z_min:
                     U_min = z_min
+                    Umini = "z"
 
+                Vmini = None
                 if V_Delta == x_max - x_min:
                     V_min = x_min
+                    Vmini = "x"
                 elif V_Delta == y_max - y_min:
                     V_min = y_min
+                    Vmini = "y"
                 elif V_Delta == z_max - z_min:
                     V_min = z_min
+                    Vmini = "z"
 
                 fcmesh = face.tessellate(0.1)
                 result += "var geom"+str(nbre_face)+" = new THREE.Geometry();\n"
@@ -136,17 +144,17 @@ def getObjectData(obj, nbre_face, FACES, WIRES, wireframeMode=wireframeStyle):
                     result += tab+"geom"+str(nbre_face)+".faceVertexUvs[0].push([ \n"
                     tmp = 0
                     for vertices in f:
-                        if V_min == x_min and U_min == y_min:
+                        if Vmini == "x" and Umini == "y":
                             uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
-                        elif V_min == x_min and U_min == z_min:
+                        elif Vmini == "x" and Umini == "z":
                             uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
-                        elif V_min == y_min and U_min == x_min:
+                        elif Vmini == "y" and Umini == "x":
                             uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
-                        elif V_min == y_min and U_min == z_min:
+                        elif Vmini == "y" and Umini == "z":
                             uv = ((fcmesh[0][vertices].y -V_min) / V_Delta, (fcmesh[0][vertices].z -U_min) / U_Delta)
-                        elif V_min == z_min and U_min == x_min:
+                        elif Vmini == "z" and Umini == "x":
                             uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].x -U_min) / U_Delta)
-                        elif V_min == z_min and U_min == y_min:
+                        elif Vmini == "z" and Umini == "y":
                             uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
                         tmp += 1
                         if tmp == 3:
