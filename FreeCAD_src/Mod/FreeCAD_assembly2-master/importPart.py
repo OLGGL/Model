@@ -13,25 +13,23 @@ from muxAssembly import muxObjects, Proxy_muxAssemblyObj
 
 def importPart(filename, partName=None):
     updateExistingPart = partName is not None
-    if updateExistingPart:
-        FreeCAD.Console.PrintMessage("Updating part %s from %s\n" % (partName, filename))
-    else:
-        FreeCAD.Console.PrintMessage("Importing part from %s\n" % filename)
+    #if updateExistingPart:
+    #    FreeCAD.Console.PrintMessage("Updating part %s from %s\n" % (partName, filename))
+    #else:
+    #    FreeCAD.Console.PrintMessage("Importing part from %s\n" % filename)
     already_open = [d.FileName for d in FreeCAD.listDocuments().values()]
-    print(already_open)
     doc_already_open = filename in already_open
-    debugPrint(4, "%s open already %s" % (filename, doc_already_open))
+    #debugPrint(4, "%s open already %s" % (filename, doc_already_open))
     if not doc_already_open:
         currentDoc = FreeCAD.ActiveDocument.Name
         FreeCAD.open(filename)
         FreeCAD.setActiveDocument(currentDoc)
-    doc = [ d for d in FreeCAD.listDocuments().values()
-            if d.FileName == filename][0]
+    doc = [d for d in FreeCAD.listDocuments().values() if d.FileName == filename][0]
 
-    debugPrint(3, '%s objects %s' % (doc.Name, doc.Objects))
+    #debugPrint(3, '%s objects %s' % (doc.Name, doc.Objects))
     if any([ 'importPart' in obj.Content for obj in doc.Objects]):
         subAssemblyImport = True
-        debugPrint(2, 'Importing subassembly from %s' % filename)
+        #debugPrint(2, 'Importing subassembly from %s' % filename)
         tempPartName = 'import_temporary_part'
         obj_to_copy = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",tempPartName)
         obj_to_copy.Proxy = Proxy_muxAssemblyObj()
@@ -39,17 +37,17 @@ def importPart(filename, partName=None):
         obj_to_copy.Shape =  muxObjects(doc)
     else: 
         subAssemblyImport = False
-        visibleObjects = [ obj for obj in doc.Objects
+        visibleObjects = [obj for obj in doc.Objects
                            if hasattr(obj,'ViewObject') and obj.Label == "Last"
                            and hasattr(obj,'Shape') and len(obj.Shape.Faces) > 0] # len(obj.Shape.Faces) > 0 to avoid sketches
-        if len(visibleObjects) <> 1:
+        if len(visibleObjects) != 1:
             if not updateExistingPart:
                 msg = "A part can only be imported from a FreeCAD document with exactly one visible part. Aborting operation"
                 QtGui.QMessageBox.information(  QtGui.qApp.activeWindow(), "Value Error", msg )
             else:
                 msg = "Error updating part from %s: A part can only be imported from a FreeCAD document with exactly one visible part. Aborting update of %s" % (partName, filename)
-            QtGui.QMessageBox.information(  QtGui.qApp.activeWindow(), "Value Error", msg )
-        #QtGui.QMessageBox.warning( QtGui.qApp.activeWindow(), "Value Error!", msg, QtGui.QMessageBox.StandardButton.Ok )
+                QtGui.QMessageBox.information(  QtGui.qApp.activeWindow(), "Value Error", msg )
+            QtGui.QMessageBox.warning( QtGui.qApp.activeWindow(), "Value Error!", msg, QtGui.QMessageBox.StandardButton.Ok )
             return
         obj_to_copy  = visibleObjects[0]
 
@@ -90,9 +88,11 @@ def importPart(filename, partName=None):
         FreeCAD.setActiveDocument(currentDoc)  
     return obj
 
+
 class Proxy_importPart:
     def execute(self, shape):
         pass
+
 
 class ImportPartCommand:
     def Activated(self):
@@ -230,14 +230,17 @@ class PartMover:
         self.callbackMove = self.view.addEventCallback("SoLocation2Event",self.moveMouse)
         self.callbackClick = self.view.addEventCallback("SoMouseButtonEvent",self.clickMouse)
         self.callbackKey = self.view.addEventCallback("SoKeyboardEvent",self.KeyboardEvent)
+
     def moveMouse(self, info):
         newPos = self.view.getPoint( *info['Position'] )
         debugPrint(5, 'new position %s' % str(newPos))
         self.obj.Placement.Base = newPos
+
     def removeCallbacks(self):
         self.view.removeEventCallback("SoLocation2Event",self.callbackMove)
         self.view.removeEventCallback("SoMouseButtonEvent",self.callbackClick)
         self.view.removeEventCallback("SoKeyboardEvent",self.callbackKey)
+
     def clickMouse(self, info):
         debugPrint(4, 'clickMouse info %s' % str(info))
         if info['Button'] == 'BUTTON1' and info['State'] == 'DOWN':
@@ -262,12 +265,12 @@ class PartMover:
                 FreeCAD.ActiveDocument.removeObject(self.obj.Name)
             self.removeCallbacks()
 
-    
 
 class PartMoverSelectionObserver:
      def __init__(self):
          FreeCADGui.Selection.addObserver(self)  
          FreeCADGui.Selection.removeSelectionGate()
+
      def addSelection( self, docName, objName, sub, pnt ):
          debugPrint(4,'addSelection: docName,objName,sub = %s,%s,%s' % (docName, objName, sub))
          FreeCADGui.Selection.removeObserver(self) 
@@ -305,7 +308,9 @@ class DuplicatePartCommand:
         return {
             'MenuText': 'duplicate', 
             'ToolTip': 'duplicate part (hold shift for multiple)'
-            } 
+            }
+
+
 try:
     FreeCADGui.addCommand('assembly2_duplicatePart', DuplicatePartCommand())
 except:
@@ -332,11 +337,14 @@ class EditPartCommand:
     def GetResources(self): 
         return { 
             'MenuText': 'edit', 
-            } 
+            }
+
+
 try:
     FreeCADGui.addCommand('assembly2_editImportedPart', EditPartCommand())
 except:
     pass
+
 
 class ForkPartCommand:
     def Activated(self):
@@ -361,11 +369,14 @@ class ForkPartCommand:
     def GetResources(self): 
         return { 
             'MenuText': 'fork', 
-            } 
+            }
+
+
 try:
     FreeCADGui.addCommand('assembly2_forkImportedPart', ForkPartCommand())
 except:
     pass
+
 
 class DeletePartsConstraints:
     def Activated(self):
@@ -397,10 +408,8 @@ except:
     pass
 
 
-
-
-
 from variableManager import ReversePlacementTransformWithBoundsNormalization
+
 
 class _SelectionWrapper:
     'as to interface with assembly2lib classification functions'
@@ -426,6 +435,7 @@ def classifySubElement( obj, subElementName ):
     else:
         return 'other'
 
+
 def classifySubElements( obj ):
     C = { 
         'plane': [],
@@ -443,7 +453,8 @@ def classifySubElements( obj ):
             catergory = classifySubElement( obj, subElementName )
             C[catergory].append(subElementName)
     return C
-    
+
+
 class SubElementDifference:
     def __init__(self, obj1, SE1, T1, obj2, SE2, T2):
         self.obj1 = obj1
@@ -479,6 +490,7 @@ class SubElementDifference:
             return numpy.array(axis)
         else:
             raise NotImplementedError,"subElement %s" % subElement
+
     def getPos(self, obj, subElement):
         pos = None
         if subElement.startswith('Face'):

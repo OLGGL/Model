@@ -2,7 +2,13 @@ import time
 from copy import copy
 
 FREECADPATH_WIN = "C:\Users\GS\Documents\Model\\trunk\FreeCAD_src\\bin"
+#FREECADPATH_WIN = "FreeCAD_src\\bin"
+#FREECADPATH_WIN = "C:\\Users\\Pierre\\Documents\\GitHub\\git_01\\Model\\FreeCAD_src\\bin"
+#FREECADPATH_WIN = "C:\\Users\\GS\\Documents\\Model\\trunk\\FreeCAD_src\\bin"
+
+
 #FREECADPATH_LINUX = "/usr/lib/freecad/lib"
+
 import sys
 import os
 sys.path.append(FREECADPATH_WIN)
@@ -19,13 +25,12 @@ def generate_interval(min, max, step):
     return list(range(min, max+step, step))
 
 
-#Checking paths in assembly doc
-def check_path(doc, dict_path):
-    for obj in doc.Objects:
-        if obj.TypeId == 'Part::FeaturePython' and hasattr(obj,"sourceFile"):
-            obj.sourceFile = dict_path[obj.sourceFile.split('/')[-1].split('.')[0]]
-
-# check_path(doc_Stool, dict_path)
+def update_source_file(obj, path):
+    name = os.path.basename(obj.sourceFile)
+    new_path = os.path.join(path, name)
+    new_path = new_path.replace("\\", "/")
+    obj.sourceFile = new_path
+    return obj
 
 
 class GroupParameter(object):
@@ -57,17 +62,15 @@ class GroupParameter(object):
 
 
 class ParamOneElement(object):
-    def __init__(self, param_name, values, piece):
+    def __init__(self, param_name, values, piece, sketch_name):
         self.param_name = param_name
         self.values = values
         self.piece = piece
+        self.sketch_name = sketch_name
 
     def apply(self, index):
-        #print(self.piece.Name, self.param_name)
-        if self.param_name == "Thickness":
-            self.piece.Sketch001.setDatum(self.param_name, self.values[index])
-        else:
-            self.piece.Sketch.setDatum(self.param_name, self.values[index])
+        sketch = getattr(self.piece, self.sketch_name)
+        sketch.setDatum(self.param_name, self.values[index])
 
 
 class Parameter(object):
@@ -83,11 +86,13 @@ class Parameter(object):
     def __len__(self):
         return len(self.base_interval)
 
-    def add_piece(self, piece, param_name, func=None):
+    def add_piece(self, piece, param_name, sketch_name, func=None):
         if func is None:
             func = lambda x: x
+        if not isinstance(sketch_name, str):
+            raise TypeError("Sketch name est une string, attention a ne pas avoir mis la fonction directement !")
         values = [func(a) for a in self.base_interval]
-        d = ParamOneElement(param_name, values, piece)
+        d = ParamOneElement(param_name, values, piece, sketch_name)
         self.list_param_one_element.append(d)
 
     def apply(self):
@@ -106,190 +111,173 @@ class Parameter(object):
             return False
 
 
-def make_parameters():
-     # Dimensions in mm
-    LENGTH = generate_interval(250, 450, 50)
-    # LENGTH = [400]
-    L1 = generate_interval(140, 260, 20) #width of CenterPart
-    # L1 = [160]
-    L2 = [115] #width of SidePart
-    THICKNESS = 18. #thikness of material
-    HEIGHT = generate_interval(350, 550, 50) #height of stool
-    # HEIGHT = [350]
-    GAP = 10. #gap between CenterPart & SidePart
-    log.warning(len(L2)*len(L1)*len(LENGTH)*len(HEIGHT))
-    #raw_input("Press Enter to continue")
-    return LENGTH, L1, L2, THICKNESS, HEIGHT, GAP
+class Meuble(object):
+    def __init__(self):
+        self.path = None #TO adapt
+        self.path_save = None #TO adapt
+        self.base_name = None #TO adapt
+        self.objects = None
+        self.params = None
+        self.group_params = None
+        self.assembly = None
+
+    def make_parameters(self):
+        raise NotImplementedError() #TO adapt
+
+    def get_objects(self):
+        raise NotImplementedError() #TO adapt
+
+    def adapt_parameters(self):
+        raise NotImplementedError() #TO adapt
+
+    def set_label_to_last(self):
+        for obj in self.objects:
+            change = False
+            i = len(obj.Objects) - 1
+            while not change and i >= 0:
+                part = obj.Objects[i]
+                if part.__class__.__name__ == "Feature":
+                    part.Label = "Last"
+                    change = True
+                i -= 1
+            if i < 0:
+                raise TypeError("Problem with {}, cannot find last feature".format(obj.Name))
+
+    def execute(self):
+        self.make_parameters()
+        nelem = 1
+        for p in self.params:
+            nelem *= len(p)
+        log.warning("Creation of {} elements".format(nelem))
+        self.get_objects()
+        self.set_label_to_last()
+        self.adapt_parameters()
+        self.group_params = GroupParameter(self.params)
+        if not os.path.isdir(self.path_save):
+            os.mkdir(self.path_save)
+        self.compute_all_pieces()
+
+    def compute_all_pieces(self):
+        self.group_params.init_state()
+        ok = True
+        while ok:
+            self.compute_piece()
+            assembly_name = self.group_params.get_name()
+            self.export(assembly_name)
+            ok = self.group_params.next_config()
+
+    def compute_piece(self):
+        for param in self.group_params:
+            param.apply()
+        for obj in self.objects:
+            obj.recompute()
+            obj.save()
+        for obj in self.assembly.Objects:
+            if obj.TypeId == 'Part::FeaturePython' and hasattr(obj, "sourceFile"):
+                update_source_file(obj, self.path)
+                importPart(obj.sourceFile, obj.Label) #function importPart from Assembly2 workbench
+        self.assembly.recompute()
+        self.assembly.save()
+
+    def export(self, assembly_name):
+        export_list = [obj for obj in self.assembly.Objects if obj.isDerivedFrom("Part::Feature")]
+        wgl.export(export_list, self.path_save + "/" + self.base_name + assembly_name + '.js', self.base_name + assembly_name)
 
 
-def make_parameters_new():
-    # Dimensions in mm
-    LENGTH = Parameter("LENGTH", 250, 450, 50)
-    L1 = Parameter("L1", 140, 260, 20)
-    L2 = Parameter("L2", 115, 115, 1) #width of SidePart
-    THICKNESS = Parameter("THICKNESS", 18, 18, 1) #thikness of material
-    HEIGHT = Parameter("HEIGHT", 350, 550, 50) #height of stool
-    res = [LENGTH, L1, L2, THICKNESS, HEIGHT]
-    log.warning("Creation of {} elements".format(len(L2)*len(L1)*len(LENGTH)*len(HEIGHT)))
-    return res
+class Tabouret(Meuble):
+    def __init__(self):
+        super(Tabouret, self).__init__()
+        self.path = os.getcwd()+"/Design/GSN_Stool/"
+        self.base_name = "Stool"
+        self.path_save = "./OutputStool"
+
+    def make_parameters(self):
+        LENGTH = Parameter("LENGTH", 250, 450, 50)
+        L1 = Parameter("L1", 140, 260, 20)
+        L2 = Parameter("L2", 115, 115, 1) #width of SidePart
+        THICKNESS = Parameter("THICKNESS", 18, 18, 1) #thikness of material
+        HEIGHT = Parameter("HEIGHT", 350, 550, 50) #height of stool
+        self.params = [LENGTH, L1, L2, THICKNESS, HEIGHT]
+
+    def get_objects(self):
+        path_CP = self.path + "CenterPart.FCStd"
+        path_SP = self.path + "SidePart.FCStd"
+        path_LP = self.path + "LinkPart.FCStd"
+        path_Leg = self.path + "LegPart.FCStd"
+        path_Stool = self.path + "StoolAssembly.FCStd"
+        doc_CP = FreeCAD.open(path_CP)
+        doc_SP = FreeCAD.open(path_SP)
+        doc_LP = FreeCAD.open(path_LP)
+        doc_Leg = FreeCAD.open(path_Leg)
+        doc_Stool = FreeCAD.open(path_Stool)
+        self.objects = [doc_CP, doc_SP, doc_LP, doc_Leg]
+        self.assembly = doc_Stool
+
+    def adapt_parameters(self):
+        length, L1, L2, thickness, height = self.params
+        doc_CP, doc_SP, doc_LP, doc_Leg = self.objects
+        length.add_piece(doc_CP, "Length", "Sketch")
+        L1.add_piece(doc_CP, "Width", "Sketch")
+        thickness.add_piece(doc_CP, "Thickness", "Sketch001", lambda x: -x,)
+
+        length.add_piece(doc_SP, "Length", "Sketch")
+        L2.add_piece(doc_SP, "Width", "Sketch", lambda x: -x)
+        thickness.add_piece(doc_SP, "Thickness", "Sketch001")
+
+        L1.add_piece(doc_LP, "Length", "Sketch", lambda x: x*0.5 -30. + 10.)
+
+        height.add_piece(doc_Leg, "Height", "Sketch", lambda x: -x)
+        length.add_piece(doc_Leg, "Length", "Sketch", lambda x: x - 110.)
+
+        self.params = [length, L1, L2, thickness, height]
 
 
-def get_object():
-    #Local path to Freecad files
-    path_CP = os.getcwd()+'/Design/GSN_Stool/CenterPart.FCStd'
-    path_SP = os.getcwd()+'/Design/GSN_Stool/SidePart.FCStd'
-    path_LP = os.getcwd()+'/Design/GSN_Stool/LinkPart.FCStd'
-    path_Leg = os.getcwd()+'/Design/GSN_Stool/LegPart.FCStd'
-    path_Stool = os.getcwd()+'/Design/GSN_Stool/StoolAssembly.FCStd'
-    doc_CP = FreeCAD.open(path_CP)
-    doc_SP = FreeCAD.open(path_SP)
-    doc_LP = FreeCAD.open(path_LP)
-    doc_Leg = FreeCAD.open(path_Leg)
-    doc_Stool = FreeCAD.open(path_Stool)
-    return doc_CP, doc_SP, doc_LP, doc_Leg, doc_Stool
+class Banc(Meuble):
+    def __init__(self):
+        super(Banc, self).__init__()
+        self.path = os.getcwd()+"/Design/Banc/"
+        self.base_name = "Banc"
+        self.path_save = "./OutputBanc2"
 
+    def make_parameters(self):
+        # Dimensions in mm
+        LENGTH = Parameter("LENGTH", 300, 3000, 300)
+        WIDTH = Parameter("WIDTH", 300, 1000, 100)
+        HEIGHT = Parameter("HEIGHT", 300, 1000, 100) #width of SidePart
+        self.params = [LENGTH, WIDTH, HEIGHT]
 
-def adapt_parameters(length, L1, L2, thickness, height, doc_CP, doc_SP, doc_LP, doc_Leg):
-    length.add_piece(doc_CP, "Length")
-    L1.add_piece(doc_CP, "Width")
-    thickness.add_piece(doc_CP, "Thickness", lambda x: -x)
+    def get_objects(self):
+        path_assise = self.path + "assise2_banc.FCStd"
+        path_barre = self.path + "barre2_banc.FCStd"
+        path_montant = self.path + "montant2_banc.FCStd"
+        path_banc = self.path + "banc_untothislast_final.FCStd"
+        doc_assise = FreeCAD.open(path_assise)
+        doc_barre = FreeCAD.open(path_barre)
+        doc_montant = FreeCAD.open(path_montant)
+        doc_banc = FreeCAD.open(path_banc)
+        self.objects = [doc_assise, doc_barre, doc_montant]
+        self.assembly = doc_banc
 
-    length.add_piece(doc_SP, "Length")
-    L2.add_piece(doc_SP, "Width", lambda x: -x)
-    thickness.add_piece(doc_SP, "Thickness")
+    def adapt_parameters(self):
+        length, width, height = self.params
+        doc_assise, doc_barre, doc_montant = self.objects
 
-    L1.add_piece(doc_LP, "Length", lambda x: x*0.5 -30. + 10.)
+        length.add_piece(doc_assise, "length", "Sketch")
+        width.add_piece(doc_assise, "width", "Sketch")
 
-    height.add_piece(doc_Leg, "Height", lambda x: -x)
-    length.add_piece(doc_Leg, "Length", lambda x: x - 110.)
+        length.add_piece(doc_barre, "length", "Sketch")
 
-    return length, L1, L2, thickness, height
+        height.add_piece(doc_montant, "height", "Sketch")
+        width.add_piece(doc_montant, "width", "Sketch", lambda x: -x)
+        width.add_piece(doc_montant, "encochesH", "Sketch", lambda x: -x/7.)
+        width.add_piece(doc_montant, "encochesB", "Sketch001", lambda x: -x/7.)
 
+        return length, width, height
 
-def compute_all_pieces(group_param, objects, assembly, path):
-    group_param.init_state()
-    ok = True
-    while ok:
-        assembly = compute_piece(group_param, objects, assembly)
-        assembly_name = group_param.get_name()
-        export(assembly, path, assembly_name)
-        ok = group_param.next_config()
-
-
-def compute_piece(group_param, objects, assembly):
-    for param in group_param:
-        param.apply()
-    for obj in objects:
-        obj.recompute()
-        obj.save()
-    for obj in assembly.Objects:
-        if obj.TypeId == 'Part::FeaturePython' and hasattr(obj,"sourceFile"):
-            importPart(obj.sourceFile, obj.Label) #function importPart from Assembly2 workbench
-    assembly.recompute()
-    assembly.save()
-    return assembly
-
-
-def export(assembly, path, assembly_name):
-    print("EXPORT_FILE_", assembly_name)
-    export_list = [obj for obj in assembly.Objects if obj.isDerivedFrom("Part::Feature")]
-    wgl.export(export_list, path + assembly_name+'.js','Stool'+assembly_name)
-
-
-def update_obj_source_file(obj):
-    filename = adapt_path(obj.sourceFile)
-    obj.sourceFile = filename
-
-
-def find_parent_directory(path, pattern):
-    path_copy = copy(path)
-    base_path = "C:\\"
-    while not path.endswith(pattern) and path != base_path:
-        path = os.path.dirname(path)
-    if path == base_path:
-        raise OSError("Problem with path to find {} in {}.".format(pattern, path_copy))
-    return path
-
-
-def adapt_path(filename):
-    local_path_to_model = os.path.join(find_parent_directory(os.getcwd(), "Model"), "Design")
-    path = filename.split("Design")[1]
-    local_path = local_path_to_model + path
-    local_path = local_path.replace("\\", "/")
-    return local_path
-
-
-def old_main():
-    LENGTH, L1, L2, THICKNESS, HEIGHT, GAP = make_parameters()
-    doc_CP, doc_SP, doc_LP, doc_Leg, doc_Stool = get_object()
-
-    for length in LENGTH:
-        for l1 in L1:
-            for h in HEIGHT:
-                for l2 in L2:
-
-                    ####### Update parts independently #######
-                    # CenterPart #
-                    # Set length and width from first Sketch
-                    doc_CP.Sketch.setDatum("Length", length)
-                    doc_CP.Sketch.setDatum("Width", l1)
-                    # Set thickness from second Sketch001 (pocket)
-                    doc_CP.Sketch001.setDatum("Thickness", -THICKNESS)
-                    doc_CP.recompute()
-                    doc_CP.save()
-
-                    # SidePart #
-                    # Set length and width from first Sketch (pad)
-                    doc_SP.Sketch.setDatum("Length", length)
-                    doc_SP.Sketch.setDatum("Width", -l2)
-                    # Set thickness from second Sketch001 (pocket)
-                    doc_SP.Sketch001.setDatum("Thickness", THICKNESS)
-                    doc_SP.recompute()
-                    doc_SP.save()
-
-                    # LinkPart #
-                    doc_LP.Sketch.setDatum("Length", GAP + l1/2. -30.)
-                    doc_LP.recompute()
-                    doc_LP.save()
-
-                    # LegPart #
-                    doc_Leg.Sketch.setDatum("Height", -h)
-                    doc_Leg.Sketch.setDatum("Length", length-110.)
-                    #doc.Sketch001.setDatum("Thickness", THICKNESS)
-                    doc_Leg.recompute()
-                    doc_Leg.save()
-
-                    ######## Update parts in Assembly file and re-run constraint solver #########
-                    for obj in doc_Stool.Objects:
-                        if obj.TypeId == 'Part::FeaturePython' and hasattr(obj,"sourceFile"):
-                            update_obj_source_file(obj)
-                            importPart(obj.sourceFile, obj.Label) #function importPart from Assembly2 workbench
-                    doc_Stool.recompute()
-                    doc_Stool.save()
-
-                    export_list = []
-                    for obj in doc_Stool.Objects:
-                        if obj.isDerivedFrom("Part::Feature"):
-                            export_list.append(obj)
-                    wgl.export(export_list, './output/Stool'+str(length)+str(l1)+str(h)+str(l2)+'.js','Stool'+str(length)+str(l1)+str(h)+str(l2))
-
-
-def new_main():
-    params = make_parameters_new()
-    length, L1, L2, thickness, height = params
-    doc_CP, doc_SP, doc_LP, doc_Leg, doc_Stool = get_object()
-    length, L1, L2, thickness, height = adapt_parameters(length, L1, L2, thickness, height, doc_CP, doc_SP, doc_LP, doc_Leg)
-
-    params = [length, L1, L2, thickness, height]
-    group_params = GroupParameter(params)
-    objects = [doc_CP, doc_SP, doc_LP, doc_Leg]
-    assembly = doc_Stool
-
-    path = "./output/Stool"
-    compute_all_pieces(group_params, objects, assembly, path)
 
 if __name__ == "__main__":
     t = time.clock()
-    old_main()
+    meuble = Banc()
+    meuble.execute()
     t1 = time.clock()
     log.warning("Done in {}".format(t1 - t))

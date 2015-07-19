@@ -86,6 +86,25 @@ def getCameraData():
     return result
 
 
+def get_plan(boundbox):
+    x_max = boundbox.XMax
+    x_min = boundbox.XMin
+    y_max = boundbox.YMax
+    y_min = boundbox.YMin
+    z_max = boundbox.ZMax
+    z_min = boundbox.ZMin
+    mini = {"x": x_min, "y": y_min, "z": z_min}
+    delta = {"x": x_max - x_min, "y": y_max - y_min, "z": z_max - z_min}
+    sorted_delta = sorted(delta, key = lambda x: delta[x], reverse=True)
+    Uname = sorted_delta[0]
+    Vname = sorted_delta[1]
+    Udelta = delta[Uname]
+    Vdelta = delta[Vname]
+    Umin = mini[Uname]
+    Vmin = mini[Vname]
+    return Uname, Udelta, Umin, Vname, Vdelta, Vmin
+
+
 def getObjectData(obj, nbre_face, FACES, WIRES, wireframeMode=wireframeStyle):
     result = ""
     wires = []
@@ -128,6 +147,8 @@ def getObjectData(obj, nbre_face, FACES, WIRES, wireframeMode=wireframeStyle):
                     V_min = z_min
                     Vmini = "z"
 
+                Umini, U_Delta, U_min, Vmini, V_Delta, V_min = get_plan(face.BoundBox)
+
                 fcmesh = face.tessellate(0.1)
                 result += "var geom"+str(nbre_face)+" = new THREE.Geometry();\n"
                 result += tab+"geom"+str(nbre_face)+".faceVertexUvs[0] = [];\n"
@@ -143,6 +164,7 @@ def getObjectData(obj, nbre_face, FACES, WIRES, wireframeMode=wireframeStyle):
                     ## Setting UVs coordinates ###
                     result += tab+"geom"+str(nbre_face)+".faceVertexUvs[0].push([ \n"
                     tmp = 0
+                    uv = None
                     for vertices in f:
                         if Vmini == "x" and Umini == "y":
                             uv = ((fcmesh[0][vertices].x -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
@@ -157,6 +179,8 @@ def getObjectData(obj, nbre_face, FACES, WIRES, wireframeMode=wireframeStyle):
                         elif Vmini == "z" and Umini == "y":
                             uv = ((fcmesh[0][vertices].z -V_min) / V_Delta, (fcmesh[0][vertices].y -U_min) / U_Delta)
                         tmp += 1
+                        if uv is None:
+                            raise KeyError("UV has not been created")
                         if tmp == 3:
                             result += tab+"    new THREE.Vector2"+str(uv)+"\n"
                         else:
